@@ -15,7 +15,7 @@
 ## 📽️ Project Video Preview & Demonstration
 *(Apanar video link ti nicher bracket e bosiye din)*
 
-[![Smart AgroNovaX Video Demo](https://shields.io▶_Watch_Full_4--Min_Project_Video-Click_Here_to_Play-red?style=for-the-badge&logo=youtube)](https://videotourl.com/videos/1791658056993-f254e21f-4bfa-4de3-929e-d17286fbcc4e.mp4)
+[![Smart AgroNovaX Video Demo](https://shields.io▶_Watch_Full_4--Min_Project_Video-Click_Here_to_Play-red?style=for-the-badge&logo=youtube)](https://videotourl.com/videos/1791658269891-d39bc75d-de4c-4719-ba88-611086651a4f.mp4)
 
 > **[▶ Click here to watch the full presentation and demonstration video](https://videotourl.com/videos/1791658056993-f254e21f-4bfa-4de3-929e-d17286fbcc4e.mp4)**
 
