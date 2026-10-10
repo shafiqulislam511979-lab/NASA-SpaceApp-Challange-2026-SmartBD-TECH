@@ -1,0 +1,160 @@
+sudo raspi-config
+
+1. Interface Options → Serial Port
+     - Login shell over serial: NO
+     - Serial port hardware: YES
+
+2. Interface Options → I2C
+     - Enable: YES
+
+3. Performance Options → GPU Memory
+     - Set to: 128
+
+4. Localisation → Timezone
+     - Asia → Dhaka
+
+5. Select <Finish>
+
+# Edit boot config
+sudo nano /boot/firmware/config.txt
+
+# Add these lines at the end:
+
+enable_uart=1
+dtoverlay=disable-bt
+gpu_mem=128
+start_x=1
+
+# Save: Ctrl+X, then Y, then Enter
+
+# Edit cmdline (for serial)
+
+sudo nano /boot/firmware/cmdline.txt
+
+# Remove these if present:
+# console=serial0,115200
+# (Just delete that part)
+
+# Then this:
+
+sudo nano /etc/systemd/system/agribot.service
+
+# Add these lines
+
+[Unit]
+Description=Agribot Ultimate Control System
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi
+ExecStart=/usr/bin/python3 /home/pi/agribot_main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/pi/agribot_data/agribot.log
+StandardError=append:/home/pi/agribot_data/agribot_error.log
+
+[Install]
+WantedBy=multi-user.target
+
+# Then this:
+
+nano ~/change_wifi.sh
+
+# Add these lines
+
+#!/bin/bash
+echo "Current WiFi networks:"
+sudo iwlist wlan0 scan | grep ESSID
+
+echo ""
+read -p "Enter WiFi SSID: " SSID
+read -sp "Enter WiFi Password: " PASS
+echo ""
+
+sudo tee /etc/wpa_supplicant/wpa_supplicant.conf > /dev/null <<EOF
+country=BD
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="$SSID"
+    psk="$PASS"
+    key_mgmt=WPA-PSK
+}
+EOF
+
+echo "Restarting WiFi..."
+sudo wpa_cli -i wlan0 reconfigure
+echo "Done! New WiFi configured."
+
+Also sure that all functions all ok. and agribot_main.py file is on the system root directory (~).
+Commands:
+
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y \
+    python3-pip \
+    python3-dev \
+    python3-opencv \
+    git \
+    nginx \
+    vim \
+    nano \
+    screen \
+    build-essential \
+    cmake \
+    v4l-utils \
+    python3-pip \
+    python3-websockets \
+    python3-serial \
+    python3-requests \
+    python3-numpy \
+    python3-opencv \
+    python3-asyncio-mqtt
+sudo usermod -a -G dialout pi
+sudo usermod -a -G video pi
+sudo usermod -a -G gpio pi
+groups pi
+mkdir -p ~/agribot_data/evidence
+mkdir -p ~/agribot_data/recordings
+ls -la ~/
+sudo chmod 666 /dev/ttyAMA0
+sudo cp ~/agribot_control.html /var/www/html/index.html
+sudo chown www-data:www-data /var/www/html/index.html
+sudo chmod 644 /var/www/html/index.html
+sudo systemctl enable nginx
+sudo systemctl start nginx
+sudo systemctl status nginx
+sudo systemctl daemon-reload
+sudo systemctl enable agribot.service
+sudo systemctl start agribot.service
+sudo systemctl status agribot.service
+sudo journalctl -u agribot.service -f
+chmod +x ~/change_wifi.sh
+./change_wifi.sh
+
+
+After doing this Run this verification Command:
+
+# Run this verification script:
+python3 << 'VERIFY'
+import os
+import subprocess
+
+checks = {
+    "agribot_main.py exists": os.path.exists("/home/pi/agribot.py"),
+    "HTML exists": os.path.exists("/var/www/html/index.html"),
+    "Data directory exists": os.path.exists("/home/pi/agribot_data"),
+    "Service enabled": "enabled" in subprocess.getoutput("systemctl is-enabled agribot"),
+}
+
+print("\n=== Agribot Setup Verification ===\n")
+for check, status in checks.items():
+    symbol = "✓" if status else "✗"
+    print(f"{symbol} {check}")
+
+print("\n" + "="*35 + "\n")
+VERIFY
+

@@ -1,0 +1,64 @@
+1
+00:00:00,000 --> 00:00:15,000
+Across Bangladesh, farms depend on timely planting, careful watering, and decisions made with limited time and information. Smart farming can help bridge that gap.
+
+2
+00:00:15,000 --> 00:00:30,000
+Hello, I’m Md. Saimun Islam, CEO, President and Founder of SmartBD TECH. We are building technology with a clear purpose: helping farming communities.
+
+3
+00:00:30,000 --> 00:00:45,000
+And I’m Furkan Mahmud, Project Manager. Together, we present Smart AgroNovaX for the NASA Space Apps Challenge 2026, in the Field Shift challenge category.
+
+4
+00:00:45,000 --> 00:01:00,000
+Our vision is to connect Earth observation, local sensors, and agricultural robotics, turning wider environmental insight into practical action on the farm, in Bangladesh and beyond.
+
+5
+00:01:00,000 --> 00:01:15,000
+Farmers face labour pressure, uneven watering, crop stress, and incomplete information. A single sensor cannot reveal conditions across an entire field or region.
+
+6
+00:01:15,000 --> 00:01:30,000
+NASA Earthdata and EOSDIS provide access to Earth science observations. These resources can help us examine land and vegetation patterns across agricultural regions and over time.
+
+7
+00:01:30,000 --> 00:01:45,000
+MODIS and VIIRS vegetation products, alongside Landsat-derived NDVI, can help track vegetation greenness and changing crop conditions. Each product has its own resolution and revisit schedule.
+
+8
+00:01:45,000 --> 00:02:00,000
+For soil moisture, SMAP-based products offer broader regional context. Our workflow is designed to pair that perspective with local sensor readings, keeping satellite estimates distinct from direct measurements.
+
+9
+00:02:00,000 --> 00:02:15,000
+At the hardware level, a Raspberry Pi Zero 2 W handles high-level processing and connectivity, while an Arduino Uno manages sensor inputs and commands to the motors and tools.
+
+10
+00:02:15,000 --> 00:02:30,000
+Our robotic planting mechanism demonstrates seed placement and sapling support. The aim is to make repetitive field tasks more consistent and reduce the physical burden on farmers.
+
+11
+00:02:30,000 --> 00:02:45,000
+A soil moisture sensor measures conditions near the robot. With the pump connected and the control logic configured, the system can respond to a defined moisture threshold.
+
+12
+00:02:45,000 --> 00:03:00,000
+The control interface supports commands through the configured network. With GSM hardware connected, lift detection can trigger a buzzer and cellular alerts to help protect the equipment.
+
+13
+00:03:00,000 --> 00:03:15,000
+The next step is rigorous field validation: testing navigation, planting accuracy, water use, and the reliability of satellite-to-field recommendations under local crop conditions.
+
+14
+00:03:15,000 --> 00:03:30,000
+We want to turn observations into decisions: observe the landscape, measure soil conditions, assess the evidence, and guide the next farm action with the farmer in control.
+
+15
+00:03:30,000 --> 00:03:45,000
+With a farmer-friendly design and careful testing, this approach could grow to support more farms, crop types, and local environmental conditions, while keeping the technology practical and accessible.
+
+16
+00:03:45,000 --> 00:04:00,000
+We are SmartBD TECH from Bangladesh. Thank you to the NASA Space Apps Challenge judges for considering Smart AgroNovaX and our vision for the future of farming. Thank you!
+

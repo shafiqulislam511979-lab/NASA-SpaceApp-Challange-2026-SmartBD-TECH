@@ -1,0 +1,15 @@
+SMART AGRONOVAX | 4-MINUTE VIDEO NOTES
+
+Video file: Smart_AgroNovaX_NASA_Space_Apps_4min.mp4
+Runtime: 04:00 exactly
+Resolution: 1280 x 720 (HD)
+Frame rate: 24 fps
+Audio: English AI-synthesized narration with a soft synthetic ambient bed
+Subtitles: Smart_AgroNovaX_English_Subtitles.srt
+
+Production transparency:
+- The video is an assembled narrated presentation using the user-provided project poster, logo, and photos plus motion-graphic/infographic slides.
+- Narration is synthetic, not recordings of Saimun or Furkan speaking in their own voices.
+- The on-screen control interface is an illustration, not a live screenshot from the robot.
+- Satellite, vegetation-index, and soil-moisture panels are explanatory illustrations, not captured live NASA data products. Replace these with genuine, dated product screenshots and evidence of the operational data pipeline before submitting if the pipeline is not yet integrated and validated.
+- Demonstration wording is intentionally framed around the prototype's design and intended workflow; film real robot actions for any claimed live demo.

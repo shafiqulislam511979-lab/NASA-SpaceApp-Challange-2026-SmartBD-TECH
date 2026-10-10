@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agribot Ultimate Control</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    padding: 15px;
+    color: #fff;
+}
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 2.2em;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+.panel {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.18);
+}
+.panel h2 {
+    margin-bottom: 12px;
+    font-size: 1.2em;
+    border-bottom: 2px solid rgba(255,255,255,0.3);
+    padding-bottom: 8px;
+}
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 15px 0;
+}
+button {
+    background: linear-gradient(145deg, #4a90e2, #357abd);
+    border: none;
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+button:active {
+    transform: translateY(0);
+}
+.arrow-btn {
+    font-size: 22px;
+    height: 55px;
+}
+.tool-btn {
+    background: linear-gradient(145deg, #f093fb, #f5576c);
+    margin-top: 8px;
+}
+.emergency-btn {
+    background: linear-gradient(145deg, #ff0844, #ffb199);
+    grid-column: span 3;
+}
+.sensor-data {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+.sensor-item {
+    background: rgba(255,255,255,0.1);
+    padding: 8px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+.alert {
+    background: #ff4757;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-weight: bold;
+    animation: pulse 1s infinite;
+    text-align: center;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+.connected { background: #2ecc71; }
+.disconnected { background: #e74c3c; }
+video {
+    width: 100%;
+    border-radius: 10px;
+    background: #000;
+    max-height: 400px;
+}
+.battery-display {
+    background: rgba(0,0,0,0.3);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+.battery-bar {
+    width: 100%;
+    height: 25px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+.battery-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+    transition: width 0.5s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+.battery-low {
+    background: linear-gradient(90deg, #f39c12, #e67e22);
+}
+.battery-critical {
+    background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+.log-container {
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 8px;
+    height: 200px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+.log-entry {
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 2px;
+}
+input[type="text"], input[type="number"], input[type="range"], select {
+    width: 100%;
+    padding: 8px;
+    margin: 8px 0;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+input[type="range"] {
+    padding: 0;
+    height: 30px;
+}
+.charging-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(46, 204, 113, 0.2);
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+.charging-icon {
+    font-size: 20px;
+    animation: flash 1.5s infinite;
+}
+@keyframes flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+.storage-info {
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+.wifi-config {
+    background: rgba(0,0,0,0.3);
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+.speed-display {
+    text-align: center;
+    margin: 10px 0 5px 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #4a90e2;
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🤖 AGRIBOT ULTIMATE CONTROL CENTER</h1>
+   
+    <div class="grid">
+        <!-- System Status -->
+        <div class="panel">
+            <h2>System Status</h2>
+            <div>
+                <span class="status-indicator" id="conn-indicator"></span>
+                <span id="connection-status">Connecting...</span>
+            </div>
+            <div style="margin-top: 8px;">
+                Mode: <strong id="mode-display">AI Mode</strong>
+            </div>
+            <div style="margin-top: 8px;">
+                Recording: <strong id="recording-status">Active</strong>
+            </div>
+        </div>
+
+        <!-- Battery Status with Edit -->
+        <div class="panel">
+            <h2>Battery Status</h2>
+            <div class="battery-display">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Level:</span>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <strong id="battery-percent">--</strong>
+                        <button onclick="editBattery()" style="padding: 2px 8px; font-size: 12px;">✏️</button>
+                    </div>
+                </div>
+                <input type="number" id="battery-input" min="0" max="100" style="display: none; margin-top: 5px;" placeholder="Enter %">
+                <button id="battery-save" onclick="saveBattery()" style="display: none; margin-top: 5px; width: 100%;">Save</button>
+                <div class="battery-bar">
+                    <div class="battery-fill" id="battery-fill" style="width: 0%;">
+                        <span id="battery-text">0%</span>
+                    </div>
+                </div>
+                <div id="charging-indicator" class="charging-indicator" style="display: none;">
+                    <span class="charging-icon">⚡</span>
+                    <span id="charging-source">Charging...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Movement Control - FIXED DIRECTIONS -->
+        <div class="panel">
+            <h2>Movement Control</h2>
+            <div class="control-grid">
+                <div></div>
+                <button class="arrow-btn" onclick="sendCommand('RIGHT')">↑</button>
+                <div></div>
+                <button class="arrow-btn" onclick="sendCommand('FORWARD')">←</button>
+                <button class="arrow-btn" onclick="sendCommand('STOP')">⏹</button>
+                <button class="arrow-btn" onclick="sendCommand('BACKWARD')">→</button>
+                <div></div>
+                <button class="arrow-btn" onclick="sendCommand('LEFT')">↓</button>
+                <div></div>
+            </div>
+            
+            <!-- SPEED CONTROL ADDED -->
+            <div class="speed-display">
+                Motor Speed: <span id="speed-value">200</span>
+            </div>
+            <input type="range" id="speed-slider" min="100" max="255" value="200" 
+                   oninput="updateSpeed(this.value)">
+        </div>
+
+        <!-- Tools Control - FIXED ORDER -->
+        <div class="panel">
+            <h2>Farming Tools</h2>
+            <button class="tool-btn" onclick="toggleTool('PUMP')">💧 Water Pump</button>
+            <button class="tool-btn" onclick="toggleTool('SEED')">🌱 Seed Motor</button>
+            <button class="tool-btn" onclick="toggleTool('GRASS')">🌿 Grass Cutter</button>
+        </div>
+
+        <!-- Sensor Readings -->
+        <div class="panel">
+            <h2>Sensor Data</h2>
+            <div class="sensor-data">
+                <div class="sensor-item">
+                    <span>🌡️ Temp:</span>
+                    <strong id="temp">--°C</strong>
+                </div>
+                <div class="sensor-item">
+                    <span>💧 Humidity:</span>
+                    <strong id="humidity">--%</strong>
+                </div>
+                <div class="sensor-item">
+                    <span>🌱 Soil:</span>
+                    <strong id="soil">--</strong>
+                </div>
+                <div class="sensor-item">
+                    <span>🔥 Flame:</span>
+                    <strong id="flame">--</strong>
+                </div>
+            </div>
+            <div id="fire-alert" style="display: none;" class="alert">
+                🚨 FIRE DETECTED!
+            </div>
+            <div id="theft-alert" style="display: none;" class="alert">
+                🚨 THEFT ALERT!
+            </div>
+        </div>
+
+        <!-- AI Voice Control -->
+        <div class="panel">
+            <h2>Voice & AI Control</h2>
+            <button id="ai-toggle" onclick="toggleAI()" style="width: 100%; margin-bottom: 8px;">🤖 AI: ON</button>
+            <button onclick="startVoiceCommand()" style="width: 100%;">🎤 Voice Command</button>
+            <div id="voice-feedback" style="margin-top: 10px; font-style: italic; min-height: 40px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px;"></div>
+        </div>
+
+        <!-- GPS & Auto Charging with Google Maps -->
+        <div class="panel">
+            <h2>GPS & Location</h2>
+            <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; font-family: monospace; font-size: 13px;" id="gps-data">
+                Lat: <span id="gps-lat">--</span><br>
+                Lon: <span id="gps-lon">--</span>
+            </div>
+            <button onclick="openGoogleMaps()" style="width: 100%; margin-top: 8px;">
+                🗺️ View on Google Maps
+            </button>
+            <div style="margin-top: 10px;">
+                <label>Charge Location:</label>
+                <input type="text" id="charge-lat" placeholder="Latitude" />
+                <input type="text" id="charge-lon" placeholder="Longitude" />
+                <button onclick="setChargeLocation()" style="width: 100%; margin-top: 5px;">
+                    📍 Set Charging Spot
+                </button>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Charging Source:</label>
+                <select id="charge-source">
+                    <option value="Wireless">Wireless Charger</option>
+                    <option value="B3">B3 Charger</option>
+                    <option value="Solar">☀️ Solar Panel</option>
+                </select>
+                <button onclick="setChargeSource()" style="width: 100%; margin-top: 5px;">
+                    Set Source
+                </button>
+            </div>
+        </div>
+
+        <!-- Storage Management -->
+        <div class="panel">
+            <h2>Storage Management</h2>
+            <div class="storage-info">
+                <div>Total: <strong id="storage-total">-- GB</strong></div>
+                <div>Used: <strong id="storage-used">-- GB</strong></div>
+                <div>Free: <strong id="storage-free">-- GB</strong></div>
+            </div>
+            <button onclick="clearRecordings()" style="width: 100%; margin-top: 10px; background: linear-gradient(145deg, #e74c3c, #c0392b);">
+                🗑️ Clear Old Recordings
+            </button>
+            <button onclick="toggleRecording()" id="recording-btn" style="width: 100%; margin-top: 8px;">
+                ⏺️ Recording Active
+            </button>
+        </div>
+
+        <!-- WiFi Configuration -->
+        <div class="panel">
+            <h2>WiFi Configuration</h2>
+            <div class="wifi-config">
+                <label>SSID:</label>
+                <input type="text" id="wifi-ssid" placeholder="WiFi Name" />
+                <label>Password:</label>
+                <input type="text" id="wifi-pass" placeholder="WiFi Password" />
+                <button onclick="changeWiFi()" style="width: 100%; margin-top: 8px;">
+                    📶 Change WiFi
+                </button>
+            </div>
+        </div>
+
+        <!-- Live Camera Feed with Toggle -->
+        <div class="panel" style="grid-column: span 2;">
+            <h2>Live Camera Feed</h2>
+            <button onclick="toggleCamera()" id="camera-toggle" style="width: 100%; margin-bottom: 10px;">
+                📹 Enable Camera
+            </button>
+            <video id="video-feed" autoplay playsinline muted style="display: none;">
+                Camera feed unavailable
+            </video>
+            <div id="camera-placeholder" style="background: rgba(0,0,0,0.5); padding: 50px; text-align: center; border-radius: 10px;">
+                Camera Off - Click button to enable
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="panel" style="grid-column: span 2;">
+            <h2>Activity Log</h2>
+            <div class="log-container" id="log-container"></div>
+            <button onclick="refreshLogs()" style="width: 100%; margin-top: 8px;">
+                🔄 Refresh Logs
+            </button>
+        </div>
+    </div>
+
+    <!-- Emergency Controls -->
+    <div class="panel">
+        <button class="emergency-btn" onclick="emergencyStop()">
+            ⚠️ EMERGENCY STOP
+        </button>
+    </div>
+</div>
+
+<script>
+// MQTT Configuration
+const MQTT_BROKER = 'wss://test.mosquitto.org:8081/mqtt';
+const TOPIC_CONTROL = 'agribot/control';
+const TOPIC_STATUS = 'agribot/status';
+const TOPIC_RESPONSE = 'agribot/response';
+const TOPIC_LOGS = 'agribot/logs';
+
+let client;
+let aiMode = true;
+let toolStates = { PUMP: false, GRASS: false, SEED: false };
+let recognition;
+let recordingActive = true;
+let cameraEnabled = false;
+let currentGpsLat = null;
+let currentGpsLon = null;
+
+// Initialize
+function init() {
+    connectMQTT();
+    setupVoiceRecognition();
+    setupVideoStream();
+}
+
+// MQTT Connection
+function connectMQTT() {
+    client = mqtt.connect(MQTT_BROKER);
+
+    client.on('connect', () => {
+        log('✓ Connected to MQTT broker');
+        updateConnectionStatus(true);
+
+        client.subscribe(TOPIC_STATUS);
+        client.subscribe(TOPIC_RESPONSE);
+        client.subscribe(TOPIC_LOGS);
+
+        refreshLogs();
+    });
+
+    client.on('message', (topic, payload) => {
+        const msg = payload.toString();
+        handleMQTTMessage(topic, msg);
+    });
+
+    client.on('offline', () => {
+        log('✗ Disconnected from MQTT');
+        updateConnectionStatus(false);
+    });
+
+    client.on('error', (err) => {
+        log(`✗ MQTT error: ${err}`);
+        updateConnectionStatus(false);
+    });
+}
+
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('conn-indicator');
+    const status = document.getElementById('connection-status');
+   
+    if (connected) {
+        indicator.className = 'status-indicator connected';
+        status.textContent = 'Connected';
+    } else {
+        indicator.className = 'status-indicator disconnected';
+        status.textContent = 'Disconnected';
+    }
+}
+
+// Handle incoming MQTT messages
+function handleMQTTMessage(topic, msg) {
+    try {
+        const data = JSON.parse(msg);
+
+        if (topic === TOPIC_STATUS) {
+            if (data.sensors) updateSensors(data.sensors);
+            if (data.battery !== undefined) updateBattery(data.battery, data.charging, data.charging_source);
+            if (data.storage) updateStorage(data.storage);
+            if (data.recording !== undefined) {
+                recordingActive = data.recording;
+                document.getElementById('recording-status').textContent = data.recording ? 'Active' : 'Stopped';
+                document.getElementById('recording-btn').textContent = data.recording ? '⏺️ Stop Recording' : '▶️ Start Recording';
+            }
+            if (data.ai_mode !== undefined) {
+                aiMode = data.ai_mode;
+                document.getElementById('mode-display').textContent = data.ai_mode ? 'AI Mode' : 'Manual Mode';
+                document.getElementById('ai-toggle').textContent = data.ai_mode ? '🤖 AI: ON' : '🤖 AI: OFF';
+            }
+            return;
+        }
+
+        if (topic === TOPIC_RESPONSE) {
+            if (data.type === 'ai_response') {
+                document.getElementById('voice-feedback').innerHTML = `<strong>AI:</strong> ${data.text}`;
+                log(`AI: ${data.text}`);
+            } else if (data.type === 'storage_cleared') {
+                log(`🗑️ Cleared ${data.count} recordings`);
+            }
+            return;
+        }
+
+        if (topic === TOPIC_LOGS) {
+            if (data.type === 'logs' && data.data) {
+                displayLogs(data.data);
+            }
+            return;
+        }
+    } catch (e) {
+        log(msg);
+    }
+}
+
+function updateSensors(data) {
+    document.getElementById('temp').textContent = data.temp?.toFixed(1) + '°C' || '--°C';
+    document.getElementById('humidity').textContent = data.humidity?.toFixed(1) + '%' || '--%';
+    document.getElementById('soil').textContent = data.soil ?? '--';
+    document.getElementById('flame').textContent = data.flame ?? '--';
+   
+    document.getElementById('fire-alert').style.display = data.fire ? 'block' : 'none';
+    document.getElementById('theft-alert').style.display = data.theft ? 'block' : 'none';
+   
+    if (data.gps) {
+        currentGpsLat = data.gps.lat;
+        currentGpsLon = data.gps.lon;
+        document.getElementById('gps-lat').textContent = data.gps.lat;
+        document.getElementById('gps-lon').textContent = data.gps.lon;
+    }
+}
+
+function updateBattery(level, charging, source) {
+    document.getElementById('battery-percent').textContent = level + '%';
+    document.getElementById('battery-text').textContent = level + '%';
+   
+    const fill = document.getElementById('battery-fill');
+    fill.style.width = level + '%';
+   
+    fill.className = 'battery-fill';
+    if (level <= 20) fill.className += ' battery-critical';
+    else if (level <= 30) fill.className += ' battery-low';
+   
+    const chargingDiv = document.getElementById('charging-indicator');
+    if (charging === 'Charging') {
+        chargingDiv.style.display = 'inline-flex';
+        document.getElementById('charging-source').textContent = source || 'Charging...';
+    } else {
+        chargingDiv.style.display = 'none';
+    }
+}
+
+function updateStorage(storage) {
+    document.getElementById('storage-total').textContent = storage.total_gb + ' GB';
+    document.getElementById('storage-used').textContent = storage.used_gb + ' GB';
+    document.getElementById('storage-free').textContent = storage.free_gb + ' GB';
+}
+
+function displayLogs(logs) {
+    const container = document.getElementById('log-container');
+    container.innerHTML = '';
+    logs.forEach(entry => {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.textContent = entry;
+        container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
+}
+
+// Send command
+function sendCommand(cmd) {
+    if (client && client.connected) {
+        client.publish(TOPIC_CONTROL, cmd);
+        log(`→ ${cmd}`);
+    } else {
+        log('✗ Not connected - cannot send command');
+    }
+}
+
+// Update speed - NEW FUNCTION
+function updateSpeed(value) {
+    document.getElementById('speed-value').textContent = value;
+    sendCommand(`SPEED:${value}`);
+    log(`Motor speed: ${value}`);
+}
+
+// Toggle tools
+function toggleTool(tool) {
+    toolStates[tool] = !toolStates[tool];
+    sendCommand(`${tool}_${toolStates[tool] ? 'ON' : 'OFF'}`);
+}
+
+// Toggle AI
+function toggleAI() {
+    aiMode = !aiMode;
+    sendCommand(aiMode ? 'AI_ON' : 'AI_OFF');
+}
+
+// Emergency stop
+function emergencyStop() {
+    if (confirm('ACTIVATE EMERGENCY STOP?')) {
+        sendCommand('EMERGENCY');
+        log('🚨 EMERGENCY STOP');
+    }
+}
+
+// Voice recognition
+function setupVoiceRecognition() {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
+       
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('voice-feedback').textContent = `Heard: "${transcript}"`;
+            sendCommand(`VOICE:${transcript}`);
+        };
+       
+        recognition.onerror = () => {
+            document.getElementById('voice-feedback').textContent = 'Voice error';
+        };
+    }
+}
+
+function startVoiceCommand() {
+    if (recognition) {
+        recognition.start();
+        document.getElementById('voice-feedback').textContent = 'Listening... 🎤';
+    } else {
+        document.getElementById('voice-feedback').textContent = 'Voice recognition not supported';
+    }
+}
+
+// Video streaming
+function setupVideoStream() {
+    const video = document.getElementById('video-feed');
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => video.srcObject = stream)
+            .catch(() => {
+                video.innerHTML = '<p style="color:white; padding:50px; text-align:center;">Camera access denied<br>(Shows your device camera)</p>';
+            });
+    } else {
+        video.innerHTML = '<p style="color:white; padding:50px; text-align:center;">Camera not supported</p>';
+    }
+}
+
+// Set charging location
+function setChargeLocation() {
+    const lat = document.getElementById('charge-lat').value;
+    const lon = document.getElementById('charge-lon').value;
+    if (lat && lon) {
+        sendCommand(`SET_CHARGE_LOC:${lat},${lon}`);
+        log(`📍 Charge location set: ${lat}, ${lon}`);
+    }
+}
+
+// Set charging source
+function setChargeSource() {
+    const source = document.getElementById('charge-source').value;
+    sendCommand(`CHARGE_SOURCE:${source}`);
+    log(`⚡ Charging source: ${source}`);
+}
+
+// Clear recordings
+function clearRecordings() {
+    if (confirm('Clear old recordings?')) {
+        sendCommand('CLEAR_RECORDINGS');
+    }
+}
+
+// Toggle recording
+function toggleRecording() {
+    recordingActive = !recordingActive;
+    sendCommand(recordingActive ? 'START_RECORDING' : 'STOP_RECORDING');
+    document.getElementById('recording-btn').textContent = recordingActive ? '⏺️ Stop Recording' : '▶️ Start Recording';
+}
+
+// Change WiFi
+function changeWiFi() {
+    const ssid = document.getElementById('wifi-ssid').value;
+    const pass = document.getElementById('wifi-pass').value;
+    if (ssid && pass) {
+        sendCommand(`WIFI:${ssid}|${pass}`);
+        log(`📶 WiFi changing to: ${ssid}`);
+    }
+}
+
+// Refresh logs
+function refreshLogs() {
+    sendCommand('GET_LOGS');
+}
+
+// Battery edit functions
+function editBattery() {
+    document.getElementById('battery-input').style.display = 'block';
+    document.getElementById('battery-save').style.display = 'block';
+}
+
+function saveBattery() {
+    const level = parseInt(document.getElementById('battery-input').value);
+    if (level >= 0 && level <= 100) {
+        sendCommand(`BATTERY:${level}`);
+        log(`🔋 Battery manually set to: ${level}%`);
+        document.getElementById('battery-input').style.display = 'none';
+        document.getElementById('battery-save').style.display = 'none';
+    } else {
+        alert('Please enter a value between 0-100');
+    }
+}
+
+// Google Maps function
+function openGoogleMaps() {
+    if (currentGpsLat && currentGpsLon) {
+        const url = `https://www.google.com/maps?q=${currentGpsLat},${currentGpsLon}`;
+        window.open(url, '_blank');
+        log(`🗺️ Opened location in Google Maps`);
+    } else {
+        alert('GPS location not available yet');
+        log('✗ No GPS data');
+    }
+}
+
+// Local logging to UI
+function log(message) {
+    const container = document.getElementById('log-container');
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    console.log(message);
+}
+
+// Keyboard controls - FIXED
+document.addEventListener('keydown', (e) => {
+    switch(e.key) {
+        case 'ArrowUp': sendCommand('RIGHT'); break;
+        case 'ArrowDown': sendCommand('LEFT'); break;
+        case 'ArrowLeft': sendCommand('FORWARD'); break;
+        case 'ArrowRight': sendCommand('BACKWARD'); break;
+        case ' ': sendCommand('STOP'); e.preventDefault(); break;
+    }
+});
+
+// Start
+init();
+</script>
+</body>
+</html>

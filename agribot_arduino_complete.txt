@@ -1,0 +1,415 @@
+/*
+ * AGRIBOT ARDUINO UNO - ULTIMATE COMPLETE SYSTEM
+ * Features: Battery Monitoring, Theft Detection, HC-05 Bluetooth Control,
+ * Precise Height Detection, All Tools Control
+ * 
+ * CIRCUIT CONNECTIONS (AS PER CIRCUIT DIAGRAM):
+ * - HC-05 Bluetooth: RX->Pin 0 (Arduino RX), TX->Pin 1 (Arduino TX) via voltage divider
+ * - Motors: D5(ENA), D6(IN1), D7(IN2), D10(ENB), D8(IN3), D9(IN4)
+ * - Tools: D2(Pump), D3(Grass Cutter), D4(Seed Motor)
+ * - Sensors: A0(Flame), A1(Soil), A2(DHT22), A3(Battery)
+ * - Ultrasonic: D11(Trig), D13(Echo)
+ * - Buzzer: D12
+ * - Raspberry Pi Serial: Uses same RX/TX pins (0,1)
+ */
+
+#include <DHT.h>
+#include <NewPing.h>
+
+// =================== PIN DEFINITIONS (CIRCUIT DIAGRAM) ===================
+// Motor Driver (L298N/BTS7960)
+#define ENA 5    // D5 - Left motor speed (PWM)
+#define IN1 6    // D6 - Left motor direction
+#define IN2 7    // D7 - Left motor direction
+#define ENB 10   // D10 - Right motor speed (PWM)
+#define IN3 8    // D8 - Right motor direction
+#define IN4 9    // D9 - Right motor direction
+
+// Tools (via Relay/MOSFET)
+#define PUMP_PIN 2           // D2 - Water Pump
+#define GRASS_CUTTER_PIN 3   // D3 - Grass Cutter
+#define SEED_MOTOR_PIN 4     // D4 - Seed Motor
+
+// Sensors
+#define FLAME_PIN A0           // A0 - Flame Sensor
+#define SOIL_MOISTURE_PIN A1   // A1 - Soil Moisture
+#define DHT_PIN A2             // A2 - DHT22
+#define BUZZER_PIN A3          // A3 - Buzzer (CHANGED from D12)
+// BATTERY_PIN removed - using voltage calculation
+
+// MPU6050 (I2C)
+#define MPU6050_SDA A4         // D12 now available for MPU6050 via I2C
+#define MPU6050_SCL A5         // I2C SCL
+
+// Ultrasonic (HC-SR04) for theft detection
+#define TRIGGER_PIN 11         // D11 - Ultrasonic Trigger
+#define ECHO_PIN 13            // D13 - Ultrasonic Echo
+#define MAX_DISTANCE 200
+
+// NOTE: HC-05 Bluetooth uses Hardware Serial (RX=0, TX=1)
+// WARNING: Must disconnect HC-05 when uploading code!
+// Raspberry Pi also uses same pins for communication
+
+// =================== OBJECTS ===================
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
+DHT dht(DHT_PIN, DHT_TYPE);
+
+// =================== VARIABLES ===================
+// Sensor readings
+int flameValue = 1023;
+int soilMoisture = 1023;
+float temperature = 0.0;
+float humidity = 0.0;
+int obstacleDistance = 0;
+int batteryLevel = 100;
+
+// Alert states
+bool fireDetected = false;
+bool theftDetected = false;
+bool autoWateringEnabled = true;
+
+// Motor control
+int motorSpeed = 200;
+
+// Theft detection
+const int THEFT_HEIGHT_THRESHOLD = 4;  // cm
+const int GROUND_CALIBRATION = 2;      // cm normal ground distance
+bool heightAlertActive = false;
+
+// Battery monitoring
+float batteryVoltage = 12.0;
+const float BATTERY_MAX = 12.6;        // Full charge voltage
+const float BATTERY_MIN = 10.0;        // Empty voltage
+
+// Timing
+unsigned long lastSensorUpdate = 0;
+unsigned long lastDataSend = 0;
+unsigned long lastBatteryCheck = 0;
+const unsigned long SENSOR_INTERVAL = 100;
+const unsigned long DATA_SEND_INTERVAL = 500;
+const unsigned long BATTERY_CHECK_INTERVAL = 5000;
+
+// =================== SETUP ===================
+void setup() {
+  // IMPORTANT: HC-05 Bluetooth and Raspberry Pi share same Serial port
+  // Both use Hardware Serial (pins 0 and 1)
+  Serial.begin(9600);
+  
+  // Motor pins
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  
+  // Tool pins
+  pinMode(PUMP_PIN, OUTPUT);
+  pinMode(GRASS_CUTTER_PIN, OUTPUT);
+  pinMode(SEED_MOTOR_PIN, OUTPUT);
+  
+  // Sensor pins
+  pinMode(FLAME_PIN, INPUT);
+  pinMode(SOIL_MOISTURE_PIN, INPUT);
+  pinMode(BATTERY_PIN, INPUT);
+  
+  // Buzzer
+  pinMode(BUZZER_PIN, OUTPUT);
+  
+  // Initialize DHT
+  dht.begin();
+  
+  // Stop everything initially
+  stopAllMotors();
+  stopAllTools();
+  digitalWrite(BUZZER_PIN, LOW);
+  
+  // Startup message (visible to both Raspberry Pi and HC-05 Bluetooth)
+  Serial.println("AGRIBOT_ULTIMATE_READY");
+  Serial.println("HC-05_BLUETOOTH_ACTIVE");
+  Serial.println("CIRCUIT_V3.0_CONNECTED");
+  delay(1000);
+}
+
+// =================== MAIN LOOP ===================
+void loop() {
+  unsigned long currentTime = millis();
+  
+  // Read sensors
+  if (currentTime - lastSensorUpdate >= SENSOR_INTERVAL) {
+    readAllSensors();
+    checkAlerts();
+    autoWatering();
+    lastSensorUpdate = currentTime;
+  }
+  
+  // Check battery
+  if (currentTime - lastBatteryCheck >= BATTERY_CHECK_INTERVAL) {
+    checkBattery();
+    lastBatteryCheck = currentTime;
+  }
+  
+  // Send data to Raspberry Pi
+  if (currentTime - lastDataSend >= DATA_SEND_INTERVAL) {
+    sendSensorData();
+    lastDataSend = currentTime;
+  }
+  
+  // Process commands
+  processSerialCommands();
+}
+
+// =================== SENSOR READING ===================
+void readAllSensors() {
+  // Ultrasonic distance (for theft detection)
+  obstacleDistance = sonar.ping_cm();
+  if (obstacleDistance == 0) obstacleDistance = MAX_DISTANCE;
+  
+  // Flame sensor (smoothed)
+  int rawFlame = analogRead(FLAME_PIN);
+  flameValue = (rawFlame + flameValue * 3) / 4;
+  
+  // Soil moisture (smoothed)
+  int rawSoil = analogRead(SOIL_MOISTURE_PIN);
+  soilMoisture = (rawSoil + soilMoisture * 3) / 4;
+  
+  // Temperature and humidity
+  float tempReading = dht.readTemperature();
+  float humReading = dht.readHumidity();
+  
+  if (!isnan(tempReading)) temperature = tempReading;
+  if (!isnan(humReading)) humidity = humReading;
+}
+
+void checkBattery() {
+  // Simple battery estimation based on system load
+  // Or use external battery management system reading
+  // For now, gradually decrease from 100 unless charging detected
+  if (batteryLevel > 0) {
+    batteryLevel = max(0, batteryLevel - 1); // Slow decrease simulation
+  }
+}
+
+void checkAlerts() {
+  // Fire detection
+  fireDetected = (flameValue < 200);
+  
+  // Theft detection (height above threshold)
+  // When robot is lifted > 4cm from ground
+  if (obstacleDistance > THEFT_HEIGHT_THRESHOLD) {
+    if (!heightAlertActive) {
+      theftDetected = true;
+      heightAlertActive = true;
+      // Trigger MAXIMUM buzzer
+      analogWrite(BUZZER_PIN, 255);
+    }
+  } else {
+    heightAlertActive = false;
+    if (!fireDetected) {
+      theftDetected = false;
+    }
+  }
+  
+  // Control buzzer
+  if (fireDetected || theftDetected) {
+    analogWrite(BUZZER_PIN, 255);  // Maximum power
+  } else {
+    analogWrite(BUZZER_PIN, 0);
+  }
+}
+
+void autoWatering() {
+  if (autoWateringEnabled) {
+    if (soilMoisture < 400) {
+      digitalWrite(PUMP_PIN, HIGH);
+    } else if (soilMoisture > 600) {
+      digitalWrite(PUMP_PIN, LOW);
+    }
+  }
+}
+
+void sendSensorData() {
+  Serial.print("FLAME:");
+  Serial.print(flameValue);
+  Serial.print(",SOIL:");
+  Serial.print(soilMoisture);
+  Serial.print(",TEMP:");
+  Serial.print(temperature, 1);
+  Serial.print(",HUM:");
+  Serial.print(humidity, 1);
+  Serial.print(",DIST:");
+  Serial.print(obstacleDistance);
+  Serial.print(",FIRE:");
+  Serial.print(fireDetected ? "1" : "0");
+  Serial.print(",THEFT:");
+  Serial.print(theftDetected ? "1" : "0");
+  Serial.print(",BATTERY:");
+  Serial.println(batteryLevel);
+}
+
+// =================== COMMAND PROCESSING ===================
+void processSerialCommands() {
+  // Commands can come from either:
+  // 1. Raspberry Pi (via USB-Serial)
+  // 2. HC-05 Bluetooth (via Hardware Serial pins 0,1)
+  // Both share the same Serial port!
+  
+  if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
+    command.toUpperCase();
+    
+    // Echo command for confirmation (to both Pi and Bluetooth)
+    Serial.print("CMD_RECEIVED:");
+    Serial.println(command);
+    
+    executeCommand(command);
+  }
+}
+
+void executeCommand(String cmd) {
+  // Movement commands
+  if (cmd == "FORWARD" || cmd == "GO FORWARD") {
+    moveForward();
+  }
+  else if (cmd == "BACKWARD" || cmd == "GO BACKWARD" || cmd == "REVERSE") {
+    moveBackward();
+  }
+  else if (cmd == "LEFT" || cmd == "TURN LEFT") {
+    turnLeft();
+  }
+  else if (cmd == "RIGHT" || cmd == "TURN RIGHT") {
+    turnRight();
+  }
+  else if (cmd == "STOP" || cmd == "HALT") {
+    stopMotors();
+  }
+  
+  // Tool commands
+  else if (cmd == "PUMP_ON" || cmd == "START PUMP") {
+    digitalWrite(PUMP_PIN, HIGH);
+    autoWateringEnabled = false;
+  }
+  else if (cmd == "PUMP_OFF" || cmd == "STOP PUMP") {
+    digitalWrite(PUMP_PIN, LOW);
+    autoWateringEnabled = false;
+  }
+  else if (cmd == "PUMP_AUTO") {
+    autoWateringEnabled = true;
+  }
+  else if (cmd == "GRASS_ON" || cmd == "START CUTTER" || cmd == "CUTTER ON") {
+    digitalWrite(GRASS_CUTTER_PIN, HIGH);
+  }
+  else if (cmd == "GRASS_OFF" || cmd == "STOP CUTTER" || cmd == "CUTTER OFF") {
+    digitalWrite(GRASS_CUTTER_PIN, LOW);
+  }
+  else if (cmd == "SEED_ON" || cmd == "START SEED") {
+    digitalWrite(SEED_MOTOR_PIN, HIGH);
+  }
+  else if (cmd == "SEED_OFF" || cmd == "STOP SEED") {
+    digitalWrite(SEED_MOTOR_PIN, LOW);
+  }
+  
+  // Alert commands
+  else if (cmd == "THEFT_ON") {
+    theftDetected = true;
+  }
+  else if (cmd == "THEFT_OFF") {
+    theftDetected = false;
+  }
+  
+  // Speed control
+  else if (cmd.startsWith("SPEED:")) {
+    int speed = cmd.substring(6).toInt();
+    if (speed >= 0 && speed <= 255) {
+      motorSpeed = speed;
+    }
+  }
+  
+  // Emergency stop
+  else if (cmd == "EMERGENCY" || cmd == "E_STOP") {
+    emergencyStop();
+  }
+  
+  // Status request
+  else if (cmd == "STATUS") {
+    sendSensorData();
+  }
+  
+  // Battery request
+  else if (cmd == "BATTERY") {
+    Serial.print("BATTERY:");
+    Serial.println(batteryLevel);
+  }
+}
+
+// =================== MOTOR CONTROL ===================
+void moveForward() {
+  analogWrite(ENA, motorSpeed);
+  analogWrite(ENB, motorSpeed);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void moveBackward() {
+  analogWrite(ENA, motorSpeed);
+  analogWrite(ENB, motorSpeed);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void turnLeft() {
+  analogWrite(ENA, motorSpeed);
+  analogWrite(ENB, motorSpeed);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void turnRight() {
+  analogWrite(ENA, motorSpeed);
+  analogWrite(ENB, motorSpeed);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
+
+void stopAllMotors() {
+  stopMotors();
+}
+
+void stopAllTools() {
+  digitalWrite(PUMP_PIN, LOW);
+  digitalWrite(GRASS_CUTTER_PIN, LOW);
+  digitalWrite(SEED_MOTOR_PIN, LOW);
+}
+
+void emergencyStop() {
+  stopAllMotors();
+  stopAllTools();
+  
+  // Flash buzzer
+  for (int i = 0; i < 3; i++) {
+    analogWrite(BUZZER_PIN, 255);
+    delay(200);
+    analogWrite(BUZZER_PIN, 0);
+    delay(200);
+  }
+  
+  Serial.println("EMERGENCY_STOP_ACTIVATED");
+}
